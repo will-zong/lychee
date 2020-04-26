@@ -18,6 +18,12 @@ class Game():
         The public channel of the game
     player_id_nums : List[int]
         A list of each player's id number
+    all_resistance_roles : List[str]
+        The resistance roles you want in the game
+        Becomes the resistance roles not in the game
+    all_spy_roles : List[str]
+        The spy roles you want in the game
+        Becomes the spy roles not in the game
 
     Attributes
     ----------
@@ -34,9 +40,9 @@ class Game():
     player_spy_roles : List[str]
         The spy roles in the current game
     all_resistance_roles : List[str]
-        The resistance roles not in the game            ### Update when changing script
+        The resistance roles not in the game
     all_spy_roles : List[str]
-        The spy roles not in the game                   ### Update when changing script
+        The spy roles not in the game                   
     spy_indices : List[int] — len()=self.num_spies
         The indicies of the spy players in any "player" List
     players : List[Players]
@@ -55,6 +61,8 @@ class Game():
         The number of failed missions
     current_window : int
         Which window it currently is: 0=team_building, 1=voting, 2=mission, 3=night_actions
+    has_night_actions : bool
+        Whether or not there are night actions in the game
     skip_night_action : bool
         Whether or not to skip the current night action
     completed : bool
@@ -65,11 +73,13 @@ class Game():
     player_id_nums
     """
 
-    def __init__(self, guild, client, general_channel, player_id_nums):
+    def __init__(self, guild, client, general_channel, player_id_nums, all_resistance_roles, all_spy_roles):
         self.guild = guild
         self.client = client
         self.general_channel = general_channel
         self.player_id_nums = player_id_nums
+        self.all_resistance_roles = all_resistance_roles
+        self.all_spy_roles = all_spy_roles
     
     async def finish_initialization(self):
         # initialize Round Tracker
@@ -83,11 +93,7 @@ class Game():
         self.player_resistance_roles = [] # List[str]
         self.player_spy_roles = [] # List[str]
         # randomize roles and spies
-        self.all_resistance_roles = ['President', 'Dueler', 'Officer', 'Contrarian',
-                                    'Informant', 'Psychic', 'Witch', 'Insider', 'Resistance Reverser', 'Gambler']
-        self.all_spy_roles = ['Organizer', 'Bomber', 'Martyr', 'Usurper', 'Muckraker',
-                             'Drunken Spy', 'Angel', 'Spy Reverser']
-        # random.shuffle(self.all_resistance_roles)
+        random.shuffle(self.all_resistance_roles)
         random.shuffle(self.all_spy_roles)
         if self.player_count == 5 or self.player_count == 6:
             self.num_spies = 2 
@@ -98,6 +104,7 @@ class Game():
         else:
             self.num_spies = 0 # int
         self.spy_indices = random.sample(range(0, self.player_count-1), self.num_spies) # List[int] — len()=self.num_spies
+        self.spy_indices.sort()
         # initialize Players
         self.players = [] # List[Players]
         for x in range(len(self.player_id_nums)):
@@ -127,6 +134,7 @@ class Game():
         self.success_count = 0
         self.fail_count = 0
         self.current_window = 0
+        self.has_night_actions = True
         self.skip_night_actions = False
         self.completed = False
         await self.general_channel.send(f'A game has been started! There are {self.player_count - self.num_spies} Resistance members and {self.num_spies} Spy members.')
@@ -143,12 +151,26 @@ class Game():
                 return True
         return False
 
+    def get_resistance_names(self):
+        resistance_names = []
+        for x in range(len(self.player_names)):
+            if not (x in self.spy_indices):
+                resistance_names.append(self.player_names[x])
+        return resistance_names
+
     def get_spy_names(self):
         spy_names = []
         for index in self.spy_indices:
             spy_names.append(self.player_names[index])
         return spy_names
     
+    def get_commander_names(self):
+        commander_names = []
+        for temp_player in self.players:
+            if temp_player.role == 'Commander' or temp_player.role == 'False Commander':
+                commander_names.append(temp_player.name)
+        return commander_names
+
     def get_round(self):
         return self.round_tracker.get_round()
 
@@ -170,6 +192,9 @@ class Game():
 
     def set_window(self, window):
         self.current_window = window
+
+    def stop_night_actions(self):
+        self.has_night_actions = False
 
     def get_current_team(self):
         current_team = []
@@ -265,20 +290,34 @@ class Game():
         # reset and open mission window
         self.voter.reset()
         self.set_window(2)
+        # determine which mission cards are avaliable to each player out of 7 possibilities
         for temp_player in self.get_current_team():
-            await temp_player.member.dm_channel.send(f'You are on the Mission {self.get_round()} team. Please `>>mission success`, `>>mission fail`, or `>>mission switch`')
+            if temp_player.possible_mission_cards == [True, True, True]:
+                await temp_player.member.dm_channel.send(f'You are on the Mission {self.get_round()} team. Please `>>mission success`, `>>mission fail`, or `>>mission switch`')
+            elif temp_player.possible_mission_cards == [True, True, False]:
+                await temp_player.member.dm_channel.send(f'You are on the Mission {self.get_round()} team. Please `>>mission success` or `>>mission fail`.')
+            elif temp_player.possible_mission_cards == [True, False, True]:
+                await temp_player.member.dm_channel.send(f'You are on the Mission {self.get_round()} team. Please `>>mission success` or `>>mission switch`.')
+            elif temp_player.possible_mission_cards == [False, True, True]:
+                await temp_player.member.dm_channel.send(f'You are on the Mission {self.get_round()} team. Please `>>mission fail` or `>>mission switch`.')
+            elif temp_player.possible_mission_cards == [True, False, False]:
+                await temp_player.member.dm_channel.send(f'You are on the Mission {self.get_round()} team. Please `>>mission success`.')
+            elif temp_player.possible_mission_cards == [False, True, False]:
+                await temp_player.member.dm_channel.send(f'You are on the Mission {self.get_round()} team. Please `>>mission fail`.')
+            else:
+                await temp_player.member.dm_channel.send(f'You are on the Mission {self.get_round()} team. Please `>>mission switch`.')
         await self.general_channel.send(f'Team members, prepare to conduct Mission {self.get_round()}.\nPlease message me privately using the `>>mission` command.')
         await self.client.change_presence(activity=discord.Game(f'Conducting Mission {self.get_round()}!'))
 
     async def end_mission(self):
-        """Ends a mission and determines the result out of 12 possiblities.
-        determine number of switches (0/2, 1)
+        """Ends a mission and determines the result out of 18 possiblities.
+        determine number of switches (even, 1, odd)
             determine if it is a double-fail round (yes, no)
                 determine number of fails to determine result (2+, 1, 0)"""
-        if len(self.missioner.conducted_switch) == 0 or len(self.missioner.conducted_switch) == 2:
+        if len(self.missioner.conducted_switch) % 2 == 0:
             if self.get_team_size() == 4.5 or self.get_team_size() == 5.5:
                 if len(self.missioner.conducted_fail) >= 2:
-                    # mission fail with 2+ fails and 0/2 switches
+                    # mission fail with 2+ fails and even switches
                     await self.general_channel.send(f'The mission has failed with {len(self.missioner.conducted_fail)} fails and {len(self.missioner.conducted_switch)} switches.')
                     # pin message
                     messages = await self.general_channel.history(limit=5).flatten()
@@ -287,7 +326,7 @@ class Game():
                             await message.pin()
                     self.fail_count += 1
                 elif len(self.missioner.conducted_fail) == 1:
-                    # mission success with 1 fail and 0/2 switches
+                    # mission success with 1 fail and even switches
                     await self.general_channel.send(f'The mission has succeeded with {len(self.missioner.conducted_fail)} fail and {len(self.missioner.conducted_switch)} switches.')
                     # pin message
                     messages = await self.general_channel.history(limit=5).flatten()
@@ -296,7 +335,7 @@ class Game():
                             await message.pin()
                     self.success_count += 1
                 else:
-                    # mission success with 0 fails and 0/2 switches
+                    # mission success with 0 fails and even switches
                     await self.general_channel.send(f'The mission has succeeded with {len(self.missioner.conducted_fail)} fails and {len(self.missioner.conducted_switch)} switches.')
                     # pin message
                     messages = await self.general_channel.history(limit=5).flatten()
@@ -306,7 +345,7 @@ class Game():
                     self.success_count += 1
             else:
                 if len(self.missioner.conducted_fail) >= 2:
-                    # mission fail with 2+ fails and 0/2 switch
+                    # mission fail with 2+ fails and even switch
                     await self.general_channel.send(f'The mission has failed with {len(self.missioner.conducted_fail)} fails and {len(self.missioner.conducted_switch)} switches.')
                     # pin message
                     messages = await self.general_channel.history(limit=5).flatten()
@@ -315,7 +354,7 @@ class Game():
                             await message.pin()
                     self.fail_count += 1
                 elif len(self.missioner.conducted_fail) == 1:
-                    # mission fail with 1 fail and 0/2 switch
+                    # mission fail with 1 fail and even switch
                     await self.general_channel.send(f'The mission has failed with {len(self.missioner.conducted_fail)} fail and {len(self.missioner.conducted_switch)} switches.')
                     # pin message
                     messages = await self.general_channel.history(limit=5).flatten()
@@ -324,7 +363,7 @@ class Game():
                             await message.pin()
                     self.fail_count += 1
                 else:
-                    # mission success with 0 fails and 0/2 switch
+                    # mission success with 0 fails and even switch
                     await self.general_channel.send(f'The mission has succeeded with {len(self.missioner.conducted_fail)} fails and {len(self.missioner.conducted_switch)} switches.')
                     # pin message
                     messages = await self.general_channel.history(limit=5).flatten()
@@ -332,7 +371,7 @@ class Game():
                         if message.content == (f'The mission has succeeded with {len(self.missioner.conducted_fail)} fails and {len(self.missioner.conducted_switch)} switches.'):
                             await message.pin()
                     self.success_count += 1
-        else:
+        elif len(self.missioner.conducted_switch) == 1:
             if self.get_team_size() == 4.5 or self.get_team_size() == 5.5:
                 if len(self.missioner.conducted_fail) >= 2:
                     # mission success with 2+ fails and 1 switch
@@ -389,6 +428,63 @@ class Game():
                         if message.content == (f'The mission has failed with {len(self.missioner.conducted_fail)} fails and {len(self.missioner.conducted_switch)} switch.'):
                             await message.pin()
                     self.fail_count += 1
+        else:
+            if self.get_team_size() == 4.5 or self.get_team_size() == 5.5:
+                if len(self.missioner.conducted_fail) >= 2:
+                    # mission success with 2+ fails and odd switch
+                    await self.general_channel.send(f'The mission has succeeded with {len(self.missioner.conducted_fail)} fails and {len(self.missioner.conducted_switch)} switches.')
+                    # pin message
+                    messages = await self.general_channel.history(limit=5).flatten()
+                    for message in reversed(messages):
+                        if message.content == (f'The mission has succeeded with {len(self.missioner.conducted_fail)} fails and {len(self.missioner.conducted_switch)} switches.'):
+                            await message.pin()
+                    self.success_count += 1
+                elif len(self.missioner.conducted_fail) == 1:
+                    # mission fail with 1 fail and odd switch
+                    await self.general_channel.send(f'The mission has failed with {len(self.missioner.conducted_fail)} fail and {len(self.missioner.conducted_switch)} switches.')
+                    # pin message
+                    messages = await self.general_channel.history(limit=5).flatten()
+                    for message in reversed(messages):
+                        if message.content == (f'The mission has failed with {len(self.missioner.conducted_fail)} fail and {len(self.missioner.conducted_switch)} switches.'):
+                            await message.pin()
+                    self.fail_count += 1
+                else:
+                    # mission fail with 0 fails and odd switch
+                    await self.general_channel.send(f'The mission has failed with {len(self.missioner.conducted_fail)} fails and {len(self.missioner.conducted_switch)} switches.')
+                    # pin message
+                    messages = await self.general_channel.history(limit=5).flatten()
+                    for message in reversed(messages):
+                        if message.content == (f'The mission has failed with {len(self.missioner.conducted_fail)} fails and {len(self.missioner.conducted_switch)} switches.'):
+                            await message.pin()
+                    self.fail_count += 1
+            else:
+                if len(self.missioner.conducted_fail) >= 2:
+                    # mission success with 2+ fails and odd switch
+                    await self.general_channel.send(f'The mission has succeeded with {len(self.missioner.conducted_fail)} fails and {len(self.missioner.conducted_switch)} switches.')
+                    # pin message
+                    messages = await self.general_channel.history(limit=5).flatten()
+                    for message in reversed(messages):
+                        if message.content == (f'The mission has suceeded with {len(self.missioner.conducted_fail)} fails and {len(self.missioner.conducted_switch)} switches.'):
+                            await message.pin()
+                    self.success_count += 1
+                elif len(self.missioner.conducted_fail) == 1:
+                    # mission success with 1 fail and odd switch
+                    await self.general_channel.send(f'The mission has suceeded with {len(self.missioner.conducted_fail)} fail and {len(self.missioner.conducted_switch)} switches.')
+                    # pin message
+                    messages = await self.general_channel.history(limit=5).flatten()
+                    for message in reversed(messages):
+                        if message.content == (f'The mission has suceeded with {len(self.missioner.conducted_fail)} fail and {len(self.missioner.conducted_switch)} switches.'):
+                            await message.pin()
+                    self.success_count += 1
+                else:
+                    # mission fail with 0 fails and odd switch
+                    await self.general_channel.send(f'The mission has failed with {len(self.missioner.conducted_fail)} fails and {len(self.missioner.conducted_switch)} switches.')
+                    # pin message
+                    messages = await self.general_channel.history(limit=5).flatten()
+                    for message in reversed(messages):
+                        if message.content == (f'The mission has failed with {len(self.missioner.conducted_fail)} fails and {len(self.missioner.conducted_switch)} switches.'):
+                            await message.pin()
+                    self.fail_count += 1            
         # reset
         for temp_player in self.players:
             temp_player.hard_reset()
@@ -399,11 +495,13 @@ class Game():
 
     async def do_post_vote_actions(self):
         # if Usurper exists, do action
-        # if Contrarian exists, do_action
+        # if Contrarian exists, do action
         # if Muckraker exists, do action
+        # if Timekeeper exists, do action
         usurper_player = None
         contrarian_player = None
         muckraker_player = None
+        timekeeper_player = None
         for temp_player in self.players:
             if temp_player.role == 'Usurper':
                 usurper_player = temp_player
@@ -411,27 +509,43 @@ class Game():
                 contrarian_player = temp_player
             elif temp_player.role == 'Muckraker':
                 muckraker_player = temp_player
+            elif temp_player.role == 'Timekeeper':
+                timekeeper_player = temp_player
         if usurper_player != None:
             await usurper_player.do_action()
         if contrarian_player != None:
             await contrarian_player.do_action()
         if muckraker_player != None:
             await muckraker_player.do_action()
+        if timekeeper_player != None:
+            await timekeeper_player.do_action()
 
     async def do_pre_mission_actions(self):
         # if Dueler is on the team, do action
-        # Bomber do action
+        # if Traditionalist is on the team, do action
+        # Bomber bomb goes off
+        # Freelancer bomb goes off
         dueler_player = None
+        traditionalist_player = None
         bomber_player = None
+        freelancer_player = None
         for temp_player in self.players:
             if temp_player.role == 'Dueler':
                 dueler_player = temp_player
+            elif temp_player.role == 'Traditionalist':
+                traditionalist_player = temp_player
             elif temp_player.role == 'Bomber':
-                dueler_player = temp_player
+                bomber_player = temp_player
+            elif temp_player.role == 'Freelancer':
+                freelancer_player = temp_player
         if dueler_player != None and (dueler_player in self.get_current_team()):
             await dueler_player.do_action()
+        if traditionalist_player != None and (traditionalist_player in self.get_current_team()):
+            await traditionalist_player.do_action()
         if bomber_player != None:
             await bomber_player.do_action()
+        if freelancer_player != None:
+            await freelancer_player.do_action()
 
     async def do_post_mission_actions(self):
         # if Martyr is on the team, do action
@@ -449,48 +563,54 @@ class Game():
             await angel_player.do_action()
 
     async def do_night_actions(self):
-        # open and announce night action window
-        self.set_window(3)
-        await self.general_channel.send('Players, if appropriate, please wait until queued to do your action in your private messages with me.')
-        await self.client.change_presence(activity=discord.Game(f'End of Round {self.get_round()} actions!'))
-        # do actions
-        action_count = 0
-        for temp_player in self.players:
-            self.skip_night_action = False
-            if temp_player.action_windows[self.get_round()-1]:
-                action_count += 1
-                await temp_player.do_action()
-        await asyncio.sleep(15*(4-action_count))
-        await self.general_channel.send('All night actions have been performed!')
+        if self.has_night_actions == True:
+            # open and announce night action window
+            self.set_window(3)
+            await self.general_channel.send('Players, if appropriate, please wait until queued to do your action in your private messages with me.')
+            await self.client.change_presence(activity=discord.Game(f'End of Round {self.get_round()} actions!'))
+            # do actions
+            action_count = 0
+            for temp_player in self.players:
+                self.skip_night_action = False
+                if temp_player.action_windows[self.get_round()-1]:
+                    action_count += 1
+                    await temp_player.do_action()
+            await asyncio.sleep(10*(4-action_count))
+            await self.general_channel.send('All end of round actions have been performed!')
         # end round
         self.set_window(0)
         self.next_round()
         await self.start_team_building()
 
+    async def do_end_actions(self):
+        # if Assassin exists and conditions met, do action
+        assassin_player = None
+        for temp_player in self.players:
+            if temp_player.role == 'Assassin':
+                assassin_player = temp_player
+        if assassin_player != None and self.success_count >= 3:
+            await assassin_player.do_action()
+
     async def check_end_game(self):
         """Checks if the game is over. If it is over, cleans everything up."""
-        if self.success_count >= 3:
+        await self.do_end_actions()
+        if self.completed == True:
+            pass
+        elif self.success_count >= 3:
             self.completed = True
             await self.general_channel.send('The game has ended—the Resistance has won!\nThere have been 3 successful missions.')
         elif self.fail_count >= 3:
             self.completed = True
-            await self.general_channel.send('The game has ended—the Spies has won!\nThere have been 3 failed missions.')
+            await self.general_channel.send('The game has ended—the Spies have won!\nThere have been 3 failed missions.')
         elif self.rejected_team_count >= 5:
             self.completed = True
-            await self.general_channel.send('The game has ended—the Spies has won!\nThere have been 5 rejected teams.')
+            await self.general_channel.send('The game has ended—the Spies have won!\nThere have been 5 rejected teams.')
         if self.completed == True:
             # reveal all player roles and alignments
             tell_all_roles = ''
             for temp_player in self.players:
                 tell_all_roles += f'{temp_player.name} was the {temp_player.role} on the {temp_player.alignment} side.\n'
             await self.general_channel.send(tell_all_roles[:-1])
-            await asyncio.sleep(45)
-            # remove @Player role
-            for role in self.guild.roles:
-                if role.name == 'Player':
-                    player_role = role
-            for temp_player in self.players:
-                await temp_player.member.remove_roles(player_role)
             # unpin all messages
             messages = await self.general_channel.pins()
             for message in messages:
@@ -574,4 +694,37 @@ def create_player(role, game, member, name, id_num):
         return Angel(game, member, name, id_num)
     elif role == 'Spy Reverser':
         return Spy_Reverser(game, member, name, id_num)
-    return None
+    elif role == 'Freelancer':
+        return Freelancer(game, member, name, id_num)
+    elif role == 'Traditionalist':
+        return Traditionalist(game, member, name, id_num)
+    elif role == 'Professor':
+        return Professor(game, member, name, id_num)
+    elif role == 'Resistance Clown':
+        return Resistance_Clown(game, member, name, id_num)
+    elif role == 'Timekeeper':
+        return Timekeeper(game, member, name, id_num)
+    elif role == 'Mad Scientist':
+        return Mad_Scientist(game, member, name, id_num)
+    elif role == 'Spy Clown':
+        return Spy_Clown(game, member, name, id_num)
+    elif role == 'Resistance':
+        return Resistance(game, member, name, id_num)
+    elif role == 'Spy':
+        return Spy(game, member, name, id_num)
+    elif role == 'Commander':
+        return Commander(game, member, name, id_num)
+    elif role == 'Bodyguard':
+        return Bodyguard(game, member, name, id_num)
+    elif role == 'Assassin':
+        return Assassin(game, member, name, id_num)
+    elif role == 'False Commander':
+        return False_Commander(game, member, name, id_num)
+    elif role == 'Librarian':
+        return Librarian(game, member, name, id_num) 
+    elif role == 'Silencer':
+        return Silencer(game, member, name, id_num)
+    elif role == 'Victimizer':
+        return Victimizer(game, member, name, id_num)
+    else: 
+        return None
