@@ -215,9 +215,8 @@ class Gambler(Player):
             await self.member.dm_channel.send('You were silenced this round.')
             return
         self.has_action = True
-        start_time = time.perf_counter()
         await self.member.dm_channel.send('Please choose 2 other players using the `>>gamble` command.')
-        while (self.has_action == True) and (self.game.skip_night_action == False) and (time.perf_counter() - start_time < 45):
+        while (self.has_action == True) and (self.game.skip_night_action == False):
             await asyncio.sleep(1)
         self.has_action = False
             
@@ -249,9 +248,8 @@ class Officer(Player):
             await self.member.dm_channel.send('You were silenced this round.')
             return
         self.has_action = True
-        start_time = time.perf_counter()
         await self.member.dm_channel.send('Please choose another player using the `>>arrest` command.')
-        while (self.has_action == True) and (self.game.skip_night_action == False) and (time.perf_counter() - start_time < 45):
+        while (self.has_action == True) and (self.game.skip_night_action == False):
             await asyncio.sleep(1)
         self.has_action = False
 
@@ -291,9 +289,8 @@ class Psychic(Player):
             await self.member.dm_channel.send('You were silenced this round.')
             return
         self.has_action = True
-        start_time = time.perf_counter()
         await self.member.dm_channel.send('Please choose another player using the `>>see` command.')
-        while (self.has_action == True) and (self.game.skip_night_action == False) and (time.perf_counter() - start_time < 45):
+        while (self.has_action == True) and (self.game.skip_night_action == False):
             await asyncio.sleep(1)
         self.has_action = False
 
@@ -323,9 +320,8 @@ class Witch(Player):
             await self.member.dm_channel.send('You were silenced this round.')
             return
         self.has_action = True
-        start_time = time.perf_counter()
         await self.member.dm_channel.send('Please choose another player using the `>>see` command.')
-        while (self.has_action == True) and (self.game.skip_night_action == False) and (time.perf_counter() - start_time < 45):
+        while (self.has_action == True) and (self.game.skip_night_action == False):
             await asyncio.sleep(1)
         self.has_action = False
 
@@ -390,9 +386,8 @@ class Freelancer(Player):
             await self.member.dm_channel.send('You were silenced this round.')
         elif self.game.current_window == 3:
             self.has_action = True
-            start_time = time.perf_counter()
             await self.member.dm_channel.send('Please choose another player using the `>>freelance` command.')
-            while (self.has_action == True) and (self.game.skip_night_action == False) and (time.perf_counter() - start_time < 45):
+            while (self.has_action == True) and (self.game.skip_night_action == False):
                 await asyncio.sleep(1)
             self.has_action = False
 
@@ -406,14 +401,14 @@ class Freelancer(Player):
         
 class Professor(Player):
 
-    """Professor — At the end of rounds 1, 2, and 3, you must privately choose a player.
+    """Professor — At the end of rounds 2, 3, and 4, you must privately choose a player.
                    During the next round, they can >>mission switch. You may not choose the same player twice."""         # completed
 
     def __init__(self, game, member, name, id_num):
         super().__init__(game, member, name, id_num, 'Professor', 'Resistance')
 
     def set_actions(self):
-        self.action_windows = [True, True, True, False]
+        self.action_windows = [False, True, True, True]
         self.past_targets = []
         self.has_action = False
 
@@ -423,9 +418,8 @@ class Professor(Player):
             await self.member.dm_channel.send('You were silenced this round.')
             return
         self.has_action = True
-        start_time = time.perf_counter()
         await self.member.dm_channel.send('Please choose another player using the `>>teach` command.')
-        while (self.has_action == True) and (self.game.skip_night_action == False) and (time.perf_counter() - start_time < 45):
+        while (self.has_action == True) and (self.game.skip_night_action == False):
             await asyncio.sleep(1)
         self.has_action = False
 
@@ -554,9 +548,8 @@ class Librarian(Player):
             await self.member.dm_channel.send('You were silenced this round.')
             return
         self.has_action = True
-        start_time = time.perf_counter()
         await self.member.dm_channel.send('Please choose another player using the `>>silence` command.')
-        while (self.has_action == True) and (self.game.skip_night_action == False) and (time.perf_counter() - start_time < 45):
+        while (self.has_action == True) and (self.game.skip_night_action == False):
             await asyncio.sleep(1)
         self.has_action = False
 
@@ -587,9 +580,8 @@ class Assassin(Player):
 
     async def do_action(self):
         self.has_action = True
-        start_time = time.perf_counter()
         await self.game.general_channel.send('There have been 3 successful missions. Assassin, please choose another player using the `>>assassinate` command.')
-        while (self.has_action == True) and (self.game.skip_night_action == False) and (time.perf_counter() - start_time < 45):
+        while (self.has_action == True) and (self.game.skip_night_actions == False):
             await asyncio.sleep(1)
 
     async def do_assassination(self, assassinated_player):
@@ -741,11 +733,11 @@ class Timekeeper(Player):
         if self.game.rejected_team_count == 4 and (self in self.game.voter.voted_reject):
             for temp_player in self.game.voter.voted_accept:
                 self.game.voter.voted_reject.append(self.game.voter.voted_accept.pop())
-            await self.member.dm_channel.send(f'You ability has been triggered!')
+            await self.member.dm_channel.send(f'Your ability has been triggered!')
 
 class Mad_Scientist(Player):
 
-    """Mad Scientist — At the end of rounds 1, 2, and 3, you must privately choose a player.
+    """Mad Scientist — At the end of rounds 2 and 3, you must privately choose a player.
                        During the next round, they can >>mission switch but cannot >>mission success."""            # completed
         
     def __init__(self, game, member, name, id_num):
@@ -757,7 +749,7 @@ class Mad_Scientist(Player):
         await self.member.dm_channel.send(f'A safe role is {self.game.all_resistance_roles[self.game.spy_indices.index(self.game.players.index(self))]}')
 
     def set_actions(self):
-        self.action_windows = [True, True, True, False]
+        self.action_windows = [False, True, True, False]
         self.past_targets = []
         self.has_action = False
 
@@ -767,9 +759,8 @@ class Mad_Scientist(Player):
             await self.member.dm_channel.send('You were silenced this round.')
             return
         self.has_action = True
-        start_time = time.perf_counter()
         await self.member.dm_channel.send('Please choose another player using the `>>experiment` command.')
-        while (self.has_action == True) and (self.game.skip_night_action == False) and (time.perf_counter() - start_time < 45):
+        while (self.has_action == True) and (self.game.skip_night_action == False):
             await asyncio.sleep(1)
         self.has_action = False
 
@@ -802,9 +793,8 @@ class Silencer(Player):
             await self.member.dm_channel.send('You were silenced this round.')
             return
         self.has_action = True
-        start_time = time.perf_counter()
         await self.member.dm_channel.send('Please choose another player using the `>>silence` command.')
-        while (self.has_action == True) and (self.game.skip_night_action == False) and (time.perf_counter() - start_time < 45):
+        while (self.has_action == True) and (self.game.skip_night_action == False):
             await asyncio.sleep(1)
         self.has_action = False
 
@@ -866,6 +856,7 @@ class Spy_Clown(Player):
 
     async def do_action(self):
         await self.member.dm_channel.send(f'{self.name}: you are the {self.believed_role} on the {self.alignment} side.')
+        await self.member.dm_channel.send(f'The Spies in this game are: {self.game.get_spy_names()}')
         await self.member.dm_channel.send(f'A safe role is {self.game.all_resistance_roles[self.game.spy_indices.index(self.game.players.index(self))]}')
 
 class Usurper(Player):
