@@ -218,14 +218,14 @@ class Game():
         self.set_window(0)
         self.next_team_leader()
         await self.general_channel.send(f'Players, prepare to conduct Mission {self.get_round()}.\n{int(self.get_team_size())} players will be on this team.\n'
-                                      + f'Your team leader is {self.player_names[self.team_leader_index]}.')
+                                      + f'Your team leader is {self.player_members[self.team_leader_index].mention}.')
         if self.get_team_size() == 4.5 or self.get_team_size() == 5.5:
-            await self.general_channel.send('This mission requires 2 `>>mission fail`s to fail.')
+            await self.general_channel.send('This mission requires 2 `>>mission fail` to fail.')
         # pin message
         messages = await self.general_channel.history(limit=5).flatten()
         for message in reversed(messages):
             if message.content == (f'Players, prepare to conduct Mission {self.get_round()}.\n{int(self.get_team_size())} players will be on this team.\n'
-                                 + f'Your team leader is {self.player_names[self.team_leader_index]}.'):
+                                 + f'Your team leader is {self.player_members[self.team_leader_index].mention}.'):
                 await message.pin()
                 return
 
@@ -582,7 +582,7 @@ class Game():
         self.next_round()
         await self.start_team_building()
 
-    async def do_end_actions(self):
+    async def do_end_game_actions(self):
         # if Assassin exists and conditions met, do action
         assassin_player = None
         for temp_player in self.players:
@@ -593,7 +593,7 @@ class Game():
 
     async def check_end_game(self):
         """Checks if the game is over. If it is over, cleans everything up."""
-        await self.do_end_actions()
+        await self.do_end_game_actions()
         if self.completed == True:
             pass
         elif self.success_count >= 3:
