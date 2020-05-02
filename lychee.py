@@ -18,17 +18,17 @@ async def on_ready():
     await client.change_presence(status=discord.Status.idle, activity=discord.Game('No ongoing game!'))
     print('Bot is ready')
 
-# @client.event
-# async def on_command_error(ctx, error):
-#     if isinstance(error, commands.CommandNotFound):
-#         await ctx.send('Sorry, that does not seem to be a command. Check `>>help` for every command that I recognize!')
-#     elif isinstance(error, commands.MissingRole):
-#         await ctx.send('Sorry, it seems that you do not have permission to use that command.')
-#     elif isinstance(error, commands.MissingRequiredArgument):
-#         await ctx.send('Sorry, it seems that you have forgotting to include a required argument. Please try again!')
-#     else:
-#         await ctx.send(f'An unhandled error has occurred.\n{error}')
-#         print(error)
+@client.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        await ctx.send('Sorry, that does not seem to be a command. Check `>>help` for every command that I recognize!')
+    elif isinstance(error, commands.MissingRole):
+        await ctx.send('Sorry, it seems that you do not have permission to use that command.')
+    elif isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send('Sorry, it seems that you have forgotting to include a required argument. Please try again!')
+    else:
+        await ctx.send(f'An unhandled error has occurred.\n{error}')
+        print(error)
 
 @client.event
 async def on_message(message):
@@ -57,7 +57,7 @@ async def on_message(message):
         rrandom = [':blush:', ':smiling_face_with_3_hearts:', ':kissing_heart:', ':star_struck:', ':flushed:', 
                   ':pleading_face:', ':hugging:', ':sneeze:', ':bow:', ':ok_woman:', ':star2:', ':sparkles:', 
                   ':revolving_hearts:', ':sparkling_heart:', ':receipt:', ':eyes:', ':grin:', ':receipt:', 
-                  ':upside_down:', ':face_with_monocle:', ':thinking:', ':wink:', ':shushing_face', ':unicorn:',
+                  ':upside_down:', ':face_with_monocle:', ':thinking:', ':wink:', ':shushing_face:', ':unicorn:',
                   ':dancer:', ':+1:', ':woozy_face:', ':smiling_imp:', ':clown:', ':fist:', ':raised_hands:',
                   ':haircut:', ':drum:', ':exploding_head:', ':liar:', ':grimacing:', ':sleepy:', ':clap:']
         if (message.content.lower().find('love') != -1 or message.content.lower().find('like') != -1 )and message.content.lower().find('i') != -1:
@@ -295,7 +295,7 @@ async def next_leader(ctx):
         await ctx.send('Sorry, it is not the team building phase.')
     else:
         game.next_team_leader()
-        await ctx.send(f'The new team leader is {self.player_names[self.team_leader_index]}.')
+        await ctx.send(f'The new team leader is {game.player_names[game.team_leader_index]}.')
     
 @client.command(help='Submits a vote: accept or reject')
 async def vote(ctx, vote):
@@ -309,7 +309,7 @@ async def vote(ctx, vote):
     elif game.get_player_from_member(ctx.author).voted:
         await ctx.send('Sorry, you have already voted.')
     elif ctx.channel == general_channel:
-        await ctx.send('Please use `>>vote` in you private messages with me.')
+        await ctx.send('Please use `>>vote` in your private messages with me.')
     elif 'accept'.startswith(vote.lower()) or vote.lower().startswith('accept'):
         await general_channel.send(f'{game.get_player_from_member(ctx.author).name} has voted.')
         await game.voter.record_vote(game.get_player_from_member(ctx.author), 0)
@@ -331,8 +331,8 @@ async def end_vote(ctx):
     else:
         for temp_player in game.players:
             if temp_player.voted == False:
-                await general_channel.send(f'{temp_player.name} has voted.')
                 await game.voter.record_vote(temp_player, 0)
+                await general_channel.send(f'{temp_player.name} has voted.')
 
 @client.command(help='Conducts a mission: success, fail, or switch')
 async def mission(ctx, card):
